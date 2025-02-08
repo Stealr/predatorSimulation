@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>WolfHare</title>
+    <link rel="stylesheet" href="styles.css" />
+
+</head>
+
+<body>
+    <div class="game-container">
+        <div class="menu">
+            <div class="settings">
+                <div class="inputs-size">
+                    <div class="size-n">
+                        n:
+                        <input id="inputN" value="4" type="number"/>
+                    </div>
+                    <div class="size-m">
+                        m:
+                        <input id="inputM" value="4" type="number"/>
+                    </div>
+                </div>
+
+                <div class="input hare">
+                    Количество зайцев:
+                    <input value="1" id="hareInput" />
+                </div>
+                <div class="input femaleWolf">
+                    Количество волков(самок):
+                    <input value="1" id="femaleWolfInput" />
+                </div>
+                <div class="input maleWolf">
+                    Количество волков(самцов):
+                    <input value="1" id="maleWolfInput" />
+                </div>
+            </div>
+            <div class="control">
+                <button onclick="generateTable()">Расставить</button>
+                <button onclick="startSimulation()">Запустить</button>
+                <button onclick="testMove()">Тестовый проход</button>
+            </div>
+        </div>
+
+        <div id="field">
+            Введите значения и нажмите "Расставить"
+        </div>
+    </div>
+
+    <script src="main.js"></script>
+</body>
+
+</html>
