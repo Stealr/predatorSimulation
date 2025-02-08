@@ -3,7 +3,7 @@ let table;
 
 let animals = [];
 
-let speed = 2000;
+let speed = 5000;
 
 const animalImages = {
     hare: "/assets/Hare.png",
@@ -28,7 +28,8 @@ function emptyCell(cells, currentPlace) {
 }
 
 function testMove() {
-    animals[0].Reproduce();
+    // updateSimulation()
+    animals[1].Eat();
 }
 
 class Animal {
@@ -80,7 +81,6 @@ class Animal {
             this.currentPlace = newCell;
         }
     }
-
 }
 
 class Wolf extends Animal {
@@ -90,13 +90,80 @@ class Wolf extends Animal {
         this.gender = gender;
     }
 
-    Eat() { }
+    Eat() {
+        const prey = this.findHare();
+        if (prey) {
+            this.hunger = 100;
+            animals = animals.filter(a => a !== prey);
+            console.log(prey);
+            prey.currentPlace.removeChild(prey.currentPlace.firstChild);
+            // prey.currentPlace.innerHTML = ''; // Не удаляется картинка с зайцем!!!!!!!!!!!!!! БАГ
+        }
+    }
+
+    findHare() {
+        let cells = Array.from(table.getElementsByTagName("td"));
+        let index = cells.indexOf(this.currentPlace);
+
+        let directions = [-1, 1, table.rows.length, table.rows.length - 1, table.rows.length + 1, -table.rows.length, -table.rows.length + 1, -table.rows.length - 1];
+
+        let possibleCells = directions
+            .map(dir => index + dir)
+            .filter(newIndex => newIndex >= 0 && newIndex < cells.length)
+            .map(validIndex => cells[validIndex]);
+
+        let prey = animals.find(a => a instanceof Hare && possibleCells.includes(a.currentPlace));
+
+
+        return prey || null;
+    }
+
 
     Starve() {
         this.hunger -= 5;
     }
 
-    Reproduce() { }
+    Reproduce() { // БАГ: Размножаются дистанционно
+        // Добавить привязку к близжайшим клеткам
+        let partner = animals.find(a => a instanceof Wolf && a.gender !== this.gender && a.hunger > 75);
+        if (partner) {
+            let cells = Array.from(table.getElementsByTagName("td"));
+            let possibleDir = emptyCell(cells, this.currentPlace);
+
+            const randomNumber = Math.floor(Math.random() * possibleDir.length);
+            let newCell = cells[possibleDir[randomNumber]];
+
+            if (!newCell) return;
+
+            let animal;
+            let type;
+            if (Math.random() > 0.5) {
+                animal = new Wolf(newCell, 'Female');
+                type = 'femaleWolf';
+            }
+            else {
+                animal = new Wolf(newCell, 'Male');
+                type = 'maleWolf';
+            }
+
+            let img = document.createElement("img");
+            img.src = animalImages[type];
+            img.width = 62;
+            img.height = 62;
+
+            newCell.appendChild(img);
+
+            let number = document.createElement('span');
+            number.innerHTML = `${animal.number}`;
+            newCell.appendChild(number)
+
+            animals.push(animal);
+
+            animal.hunger = 70;
+            partner.hunger -= 40;
+            this.hunger -= 40;
+        }
+    }
 }
 
 class Hare extends Animal {
@@ -123,13 +190,13 @@ class Hare extends Animal {
             img.src = animalImages['hare'];
             img.width = 62;
             img.height = 62;
-    
+
             newCell.appendChild(img);
 
             let number = document.createElement('span');
             number.innerHTML = `${animal.number}`;
             newCell.appendChild(number)
-    
+
             animals.push(animal);
         }
     }
@@ -220,17 +287,60 @@ function placementAnimals(rows, columns) {
     placeAnimals(countMaleWolf, "maleWolf");
 }
 
+function updateAnimalList() {
+    const listContainer = document.getElementById("animal-list");
+    listContainer.innerHTML = "<h3>Список животных</h3>";
+
+    animals.forEach(animal => {
+
+        if (animal.constructor.name === 'Hare') return;
+
+        let cellIndex = Array.from(table.getElementsByTagName("td")).indexOf(animal.currentPlace);
+        let row = Math.floor(cellIndex / table.rows[0].cells.length);
+        let col = cellIndex % table.rows[0].cells.length;
+
+        let animalInfo = document.createElement("div");
+        animalInfo.className = "animal-item";
+        animalInfo.innerHTML = `
+            <strong>${animal.constructor.name} #${animal.number}</strong><br>
+            ${animal.hunger !== undefined ? `🍖 Голод: ${animal.hunger}` : ""}
+        `;
+
+        listContainer.appendChild(animalInfo);
+    });
+}
+
 
 function updateSimulation() {
+
+    console.log(animals);
+
     animals.forEach(animal => {
-        if (typeof animal.constructor.name === "Wolf") {
+        if (animal.constructor.name === "Wolf") {
             animal.Starve();
+            if (animal.hunger <= 0) {
+                animals = animals.filter(a => a !== animal);
+                animal.currentPlace.innerHTML = '';
+                return;
+            }
+            if (animal.hunger <= 75) {
+                animal.Eat();
+            }
+            else {
+                animal.Reproduce();
+            }
         }
         else {
             animal.Reproduce();
         }
         animal.Move();
+
     });
+    updateAnimalList();
+
 }
 
 setInterval(updateSimulation, speed);
+
+
+
