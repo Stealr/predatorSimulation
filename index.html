@@ -14,42 +14,62 @@
                 <div class="inputs-size">
                     <div class="size-n">
                         n:
-                        <input id="inputN" value="4" type="number" />
+                        <input id="inputN" value="8" type="number" />
                     </div>
                     <div class="size-m">
                         m:
-                        <input id="inputM" value="4" type="number" />
+                        <input id="inputM" value="20" type="number" />
                     </div>
                 </div>
 
                 <div class="input hare">
                     Количество зайцев:
-                    <input value="1" id="hareInput" />
+                    <input value="10" id="hareInput" />
                 </div>
                 <div class="input femaleWolf">
                     Количество волков(самок):
-                    <input value="1" id="femaleWolfInput" />
+                    <input value="2" id="femaleWolfInput" />
                 </div>
                 <div class="input maleWolf">
                     Количество волков(самцов):
-                    <input value="1" id="maleWolfInput" />
+                    <input value="2" id="maleWolfInput" />
                 </div>
             </div>
             <div class="control">
                 <button onclick="generateTable()">Расставить</button>
                 <button onclick="startSimulation()">Запустить</button>
-                <button onclick="testMove()">Тестовый проход</button>
+                <!-- <button onclick="testMove()">Тестовый проход</button> -->
+            </div>
+            <div class="control-speed">
+                <span id="indicator"></span>
+                <button onclick="slowSpeed()"><-</button>
+                <button id="launch" onclick="startSimulation()">Запуск</button>
+                <button onclick="fastSpeed()">-></button>
             </div>
         </div>
 
         <div id="field">
             Введите значения и нажмите "Расставить"
-
         </div>
     </div>
-    <div id="animal-list" class="animal-list-container"></div>
+    <span id="numberDay">1 день</span>
+    
+    <div class="bottom-block">
+        <div class="lists">
+            <div id="animal-list" class="animal-list-container"></div>
+            <div id="animal-list-hare" class="animal-list-container"></div>
+        </div>
+        
+        <div class="chart">
+            <canvas id="populationChart"></canvas>
+        </div>
+        
+    </div>
 
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="main.js"></script>
+    
 </body>
 
 </html>

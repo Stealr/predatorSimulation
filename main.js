@@ -1,9 +1,25 @@
+// TODO: починить регулятор скорости, во время запущенной симуляции(попробовать пересоздавать таймер)
+// TODO: Избавиться от фантомных зайцев
+// TODO: Добавить настройки(шанс размножения, минус еда у волка)
+
+//? Опционально
+// TODO: Волк должен двигаться к своему партнеру по размножению, иначе волки очень медленно размножаются
+
 let field = document.getElementById("field");
 let table;
 
+const imgWidth = 41;
+const imgHeight = 41;
+
 let animals = [];
 
-let speed = 5000;
+let speed = 2000;
+let simulationInterval = null;
+let numberDay = 1;
+
+let aliveWolf = [0];
+let aliveHare = [0];
+let days = [0, 1];
 
 const animalImages = {
     hare: "/assets/Hare.png",
@@ -18,7 +34,8 @@ function isFree(cells, cell) {
 function emptyCell(cells, currentPlace) {
     let index = cells.indexOf(currentPlace);
 
-    let directions = [-1, 1, table.rows.length, table.rows.length - 1, table.rows.length + 1, -table.rows.length, -table.rows.length + 1, -table.rows.length - 1];
+    let countColumns = table.rows[0].cells.length;
+    let directions = [-1, 1, countColumns, countColumns - 1, countColumns + 1, -countColumns, -countColumns + 1, -countColumns - 1];
 
     let possibleDir = directions.map(dir => index + dir).filter(newIndex => (
         newIndex >= 0 && newIndex < cells.length && isFree(cells, newIndex)
@@ -28,8 +45,8 @@ function emptyCell(cells, currentPlace) {
 }
 
 function testMove() {
-    // updateSimulation()
-    animals[1].Eat();
+    updateSimulation()
+    // animals[1].Eat();
 }
 
 class Animal {
@@ -69,16 +86,19 @@ class Animal {
             span.style.transform = `translate(${dx}px, ${dy}px)`;
 
             setTimeout(() => {
+                const isDeath = animals.find(a => a.currentPlace === this.currentPlace);
+                if (!isDeath) return;
+
                 newCell.appendChild(img);
                 newCell.appendChild(span);
 
                 img.style.transform = "";
                 span.style.transform = "";
 
+                this.currentPlace = newCell;
+
                 delete newCell.dataset.reserved;
             }, speed / 2);
-
-            this.currentPlace = newCell;
         }
     }
 }
@@ -91,42 +111,47 @@ class Wolf extends Animal {
     }
 
     Eat() {
-        const prey = this.findHare();
-        if (prey) {
+        let prey = this.findAnimal(Hare);
+
+        if (prey.length !== 0) {
+            prey = prey[0];
+
             this.hunger = 100;
+
+            while (prey.currentPlace.firstChild) {
+                prey.currentPlace.removeChild(prey.currentPlace.firstChild);
+            }
+
             animals = animals.filter(a => a !== prey);
-            console.log(prey);
-            prey.currentPlace.removeChild(prey.currentPlace.firstChild);
-            // prey.currentPlace.innerHTML = ''; // Не удаляется картинка с зайцем!!!!!!!!!!!!!! БАГ
         }
     }
 
-    findHare() {
+    findAnimal(animalType) {
         let cells = Array.from(table.getElementsByTagName("td"));
         let index = cells.indexOf(this.currentPlace);
 
-        let directions = [-1, 1, table.rows.length, table.rows.length - 1, table.rows.length + 1, -table.rows.length, -table.rows.length + 1, -table.rows.length - 1];
+        let countColumns = table.rows[0].cells.length;
+        let directions = [-1, 1, countColumns, countColumns - 1, countColumns + 1, -countColumns, -countColumns + 1, -countColumns - 1];
 
         let possibleCells = directions
             .map(dir => index + dir)
             .filter(newIndex => newIndex >= 0 && newIndex < cells.length)
             .map(validIndex => cells[validIndex]);
 
-        let prey = animals.find(a => a instanceof Hare && possibleCells.includes(a.currentPlace));
+        let foundAnimals = animals.filter(a => a instanceof animalType && possibleCells.includes(a.currentPlace));
 
-
-        return prey || null;
+        return foundAnimals;
     }
-
 
     Starve() {
         this.hunger -= 5;
     }
 
-    Reproduce() { // БАГ: Размножаются дистанционно
-        // Добавить привязку к близжайшим клеткам
-        let partner = animals.find(a => a instanceof Wolf && a.gender !== this.gender && a.hunger > 75);
-        if (partner) {
+    Reproduce() {
+        let partner = this.findAnimal(Wolf);
+        partner = partner.filter(a => a.gender !== this.gender && a.hunger > 75);
+
+        if (partner.length !== 0) {
             let cells = Array.from(table.getElementsByTagName("td"));
             let possibleDir = emptyCell(cells, this.currentPlace);
 
@@ -148,8 +173,8 @@ class Wolf extends Animal {
 
             let img = document.createElement("img");
             img.src = animalImages[type];
-            img.width = 62;
-            img.height = 62;
+            img.width = imgWidth;
+            img.height = imgHeight;
 
             newCell.appendChild(img);
 
@@ -160,7 +185,7 @@ class Wolf extends Animal {
             animals.push(animal);
 
             animal.hunger = 70;
-            partner.hunger -= 40;
+            partner[0].hunger -= 40;
             this.hunger -= 40;
         }
     }
@@ -188,8 +213,8 @@ class Hare extends Animal {
 
             let img = document.createElement("img");
             img.src = animalImages['hare'];
-            img.width = 62;
-            img.height = 62;
+            img.width = imgWidth;
+            img.height = imgHeight;
 
             newCell.appendChild(img);
 
@@ -209,6 +234,10 @@ function drawWall(elem) {
 }
 
 function generateTable() {
+    aliveWolf = [];
+    aliveHare = [];
+    days = [1];
+
     const rows = parseInt(document.getElementById('inputN').value) + 2;
     const columns = parseInt(document.getElementById('inputM').value) + 2;
 
@@ -248,8 +277,8 @@ function placeAnimals(count, type) {
 
         let img = document.createElement("img");
         img.src = animalImages[type];
-        img.width = 62;
-        img.height = 62;
+        img.width = imgWidth;
+        img.height = imgHeight;
 
         cell.appendChild(img);
 
@@ -276,6 +305,9 @@ function placementAnimals(rows, columns) {
     const countFemaleWolf = parseInt(document.getElementById('femaleWolfInput').value);
     const countMaleWolf = parseInt(document.getElementById('maleWolfInput').value);
 
+    aliveHare.push(countHare);
+    aliveWolf.push(countFemaleWolf + countMaleWolf);
+
     const sumAnimals = countHare + countFemaleWolf + countMaleWolf;
     if (sumAnimals >= rows * columns) {
         field.innerHTML = `Не хватает места на поле! Животных: ${sumAnimals}, Свободных ячеек ${rows * columns}`;
@@ -289,32 +321,50 @@ function placementAnimals(rows, columns) {
 
 function updateAnimalList() {
     const listContainer = document.getElementById("animal-list");
-    listContainer.innerHTML = "<h3>Список животных</h3>";
+    const listContainerHare = document.getElementById("animal-list-hare");
+    listContainer.innerHTML = "<h3>Список волков</h3>";
+    listContainerHare.innerHTML = "<h3>Список зайцев</h3>";
 
     animals.forEach(animal => {
 
-        if (animal.constructor.name === 'Hare') return;
+        if (animal.constructor.name === 'Hare') {
+            let cellIndex = Array.from(table.getElementsByTagName("td")).indexOf(animal.currentPlace);
 
-        let cellIndex = Array.from(table.getElementsByTagName("td")).indexOf(animal.currentPlace);
-        let row = Math.floor(cellIndex / table.rows[0].cells.length);
-        let col = cellIndex % table.rows[0].cells.length;
+            let animalInfo = document.createElement("div");
+            animalInfo.className = "animal-item";
+            animalInfo.innerHTML = `
+                <strong>${animal.constructor.name} #${animal.number}</strong><br>
+            `;
 
-        let animalInfo = document.createElement("div");
-        animalInfo.className = "animal-item";
-        animalInfo.innerHTML = `
-            <strong>${animal.constructor.name} #${animal.number}</strong><br>
-            ${animal.hunger !== undefined ? `🍖 Голод: ${animal.hunger}` : ""}
-        `;
+            listContainerHare.appendChild(animalInfo);
+        }
+        else {
+            let cellIndex = Array.from(table.getElementsByTagName("td")).indexOf(animal.currentPlace);
 
-        listContainer.appendChild(animalInfo);
+            let animalInfo = document.createElement("div");
+            animalInfo.className = "animal-item";
+            animalInfo.innerHTML = `
+                <strong>${animal.constructor.name} #${animal.number}</strong><br>
+                ${animal.hunger !== undefined ? `Голод: ${animal.hunger}` : ""}<br>
+                ${animal.gender !== undefined ? `Пол: ${animal.gender}` : ""}
+            `;
+
+            listContainer.appendChild(animalInfo);
+        }
     });
 }
 
+function countAnimals(typeAnimal) {
+    let num = 0;
+
+    animals.forEach(animal => {
+        if (animal.constructor.name === typeAnimal) num++;
+    });
+
+    return num;
+}
 
 function updateSimulation() {
-
-    console.log(animals);
-
     animals.forEach(animal => {
         if (animal.constructor.name === "Wolf") {
             animal.Starve();
@@ -336,11 +386,97 @@ function updateSimulation() {
         animal.Move();
 
     });
-    updateAnimalList();
 
+    let cells = Array.from(table.getElementsByTagName("td"));
+    cells.forEach(cell => {
+        delete cell.dataset.reserved;
+    });
+
+    updateAnimalList();
+    dayContainer.textContent = `${++numberDay} день`;
+
+    days.push(numberDay);
+    aliveHare.push(countAnimals('Hare'));
+    aliveWolf.push(countAnimals('Wolf'));
+
+
+    chart.data.labels = days;
+    chart.data.datasets[0].data = aliveHare;
+    chart.data.datasets[1].data = aliveWolf;
+    chart.update();
 }
 
-setInterval(updateSimulation, speed);
+function startSimulation() {
+    if (simulationInterval) {
+        clearInterval(simulationInterval);
+        simulationInterval = null;
+        launch.textContent = 'Запуск';
+    }
+    else {
+        simulationInterval = setInterval(updateSimulation, speed);
+        launch.textContent = 'Стоп';
+    }
+}
 
+function slowSpeed() {
+    speed /= 2;
+    indicator.textContent = `${speed / 1000}c`;
+}
 
+function fastSpeed() {
+    speed *= 2;
+    indicator.textContent = `${speed / 1000}c`;
+}
 
+const dayContainer = document.getElementById('numberDay');
+
+const indicator = document.getElementById('indicator');
+indicator.textContent = `${speed / 1000}c`;
+
+const launch = document.getElementById('launch');
+updateAnimalList();
+
+// --------------------------------------------------------------------------
+//--------------------------- Отрисовка графика -----------------------------
+// --------------------------------------------------------------------------
+
+const ctx = document.getElementById("populationChart").getContext("2d");
+
+const chart = new Chart(ctx, {
+    type: "line",
+    data: {
+        labels: days,
+        datasets: [
+            {
+                label: "Кроликов",
+                data: aliveHare,
+                borderColor: "blue",
+                backgroundColor: "rgba(4, 0, 255, 0.2)",
+                borderWidth: 2,
+                pointStyle: "rect",
+                pointRadius: 3,
+                pointBackgroundColor: "blue",
+            },
+            {
+                label: "Волков",
+                data: aliveWolf,
+                borderColor: "red",
+                backgroundColor: "rgba(255, 17, 0, 0.2)",
+                borderWidth: 2,
+                pointStyle: "diamond",
+                pointRadius: 3,
+                pointBackgroundColor: "red",
+            },
+        ],
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { position: "top" },
+        },
+        scales: {
+            x: { title: { display: true, text: "Дни жизни" } },
+            y: { title: { display: true, text: "Количество животных" } },
+        },
+    },
+});
