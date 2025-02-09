@@ -14,26 +14,55 @@
                 <div class="inputs-size">
                     <div class="size-n">
                         n:
-                        <input id="inputN" value="8" type="number" />
+                        <input id="inputN" value="15" type="number" />
                     </div>
                     <div class="size-m">
                         m:
-                        <input id="inputM" value="20" type="number" />
+                        <input id="inputM" value="40" type="number" />
                     </div>
                 </div>
 
                 <div class="input hare">
                     Количество зайцев:
-                    <input value="10" id="hareInput" />
+                    <input value="20" id="hareInput" />
                 </div>
                 <div class="input femaleWolf">
                     Количество волков(самок):
-                    <input value="2" id="femaleWolfInput" />
+                    <input value="7" id="femaleWolfInput" />
                 </div>
                 <div class="input maleWolf">
                     Количество волков(самцов):
-                    <input value="2" id="maleWolfInput" />
+                    <input value="7" id="maleWolfInput" />
                 </div>
+                <div class="input chanceReproduction">
+                    Шанс на размножение у зайцев:
+                    <input value="0.3" id="chanceReproduction" />
+                </div>
+                <div class="input starveWolf">
+                    Количество единиц голода, которое волк теряет за каждый такт:
+                    <input value="5" id="starveWolf" />
+                </div>
+                <div class="input starveWolfReproduction">
+                    Количество единиц голода, которое теряет волк после размножения:
+                    <input value="50" id="starveWolfReproduction" />
+                </div>
+                <div class="input childHunger">
+                    Уровень голода, с которым рождается новый волк:
+                    <input value="70" id="childHunger" />
+                </div>
+                <div class="input startEat">
+                    Порог голода, при котором волк начнет искать пищу:
+                    <input value="55" id="startEat" />
+                </div>
+                <div class="input startReproduce">
+                    Порог голода, при котором волк начнет размножаться:
+                    <input value="80" id="startReproduce" />
+                </div>
+                <div class="input increaseHunger">
+                    Количество единиц голода, которое восстанавливает заяц:
+                    <input value="45" id="increaseHunger" />
+                </div>
+
             </div>
             <div class="control">
                 <button onclick="generateTable()">Расставить</button>

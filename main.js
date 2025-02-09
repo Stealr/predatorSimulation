@@ -1,6 +1,6 @@
 // TODO: починить регулятор скорости, во время запущенной симуляции(попробовать пересоздавать таймер)
-// TODO: Избавиться от фантомных зайцев
-// TODO: Добавить настройки(шанс размножения, минус еда у волка)
+//! BUG: иногда появляются фантомные животные, т.е. после смерти животное удаляется из общего списка,
+//! но не удаляется из клетки. В итоге мертвая душа лежит на поле и занимает место для живых. 
 
 //? Опционально
 // TODO: Волк должен двигаться к своему партнеру по размножению, иначе волки очень медленно размножаются
@@ -8,12 +8,12 @@
 let field = document.getElementById("field");
 let table;
 
-const imgWidth = 41;
-const imgHeight = 41;
+const imgWidth = 31;
+const imgHeight = 31;
 
 let animals = [];
 
-let speed = 2000;
+let speed = 500;
 let simulationInterval = null;
 let numberDay = 1;
 
@@ -21,11 +21,18 @@ let aliveWolf = [0];
 let aliveHare = [0];
 let days = [0, 1];
 
+let deathWolf = 0;
+let deathHare = 0;
+
 const animalImages = {
-    hare: "/assets/Hare.png",
-    femaleWolf: "/assets/femaleWolf.png",
-    maleWolf: "/assets/maleWolf.png",
+    hare: "/assets/Hare-min.png",
+    femaleWolf: "/assets/femaleWolf-min.png",
+    maleWolf: "/assets/maleWolf-min.png",
 };
+
+let startEat;
+let increaseHunger;
+let startReproduce;
 
 function isFree(cells, cell) {
     return cells[cell].children.length === 0 && !cells[cell].dataset.reserved;
@@ -45,8 +52,7 @@ function emptyCell(cells, currentPlace) {
 }
 
 function testMove() {
-    updateSimulation()
-    // animals[1].Eat();
+    resetField();
 }
 
 class Animal {
@@ -56,6 +62,7 @@ class Animal {
     }
 
     Move() {
+
         let cells = Array.from(table.getElementsByTagName("td"));
         let possibleDir = emptyCell(cells, this.currentPlace);
 
@@ -86,8 +93,12 @@ class Animal {
             span.style.transform = `translate(${dx}px, ${dy}px)`;
 
             setTimeout(() => {
-                const isDeath = animals.find(a => a.currentPlace === this.currentPlace);
-                if (!isDeath) return;
+                // Проверяем, существует ли объект в animals перед перемещением
+                if (!animals.includes(this)) {
+                    img.remove(); // Если объект уже удален, удаляем картинку
+                    span.remove();
+                    return;
+                }
 
                 newCell.appendChild(img);
                 newCell.appendChild(span);
@@ -104,10 +115,13 @@ class Animal {
 }
 
 class Wolf extends Animal {
-    constructor(element, gender) {
+    constructor(element, gender, starveWolf, starveWolfReproduction, childHunger) {
         super(element);
         this.hunger = 100;
         this.gender = gender;
+        this.starve = starveWolf;
+        this.starveWolfReproduction = starveWolfReproduction;
+        this.childHunger = childHunger;
     }
 
     Eat() {
@@ -116,13 +130,16 @@ class Wolf extends Animal {
         if (prey.length !== 0) {
             prey = prey[0];
 
-            this.hunger = 100;
+            this.hunger += increaseHunger;
 
             while (prey.currentPlace.firstChild) {
                 prey.currentPlace.removeChild(prey.currentPlace.firstChild);
             }
 
             animals = animals.filter(a => a !== prey);
+            deathHare += 1;
+
+            prey.currentPlace = null;
         }
     }
 
@@ -144,12 +161,12 @@ class Wolf extends Animal {
     }
 
     Starve() {
-        this.hunger -= 5;
+        this.hunger -= this.starve;
     }
 
     Reproduce() {
         let partner = this.findAnimal(Wolf);
-        partner = partner.filter(a => a.gender !== this.gender && a.hunger > 75);
+        partner = partner.filter(a => a.gender !== this.gender && a.hunger > startReproduce);
 
         if (partner.length !== 0) {
             let cells = Array.from(table.getElementsByTagName("td"));
@@ -163,11 +180,11 @@ class Wolf extends Animal {
             let animal;
             let type;
             if (Math.random() > 0.5) {
-                animal = new Wolf(newCell, 'Female');
+                animal = new Wolf(newCell, 'Female', this.starve, this.starveWolfReproduction, this.childHunger);
                 type = 'femaleWolf';
             }
             else {
-                animal = new Wolf(newCell, 'Male');
+                animal = new Wolf(newCell, 'Male', this.starve, this.starveWolfReproduction, this.childHunger);
                 type = 'maleWolf';
             }
 
@@ -184,23 +201,23 @@ class Wolf extends Animal {
 
             animals.push(animal);
 
-            animal.hunger = 70;
-            partner[0].hunger -= 40;
-            this.hunger -= 40;
+            animal.hunger = this.childHunger;
+            partner[0].hunger -= partner[0].starveWolfReproduction;
+            this.hunger -= this.starveWolfReproduction;
         }
     }
 }
 
 class Hare extends Animal {
-    constructor(element) {
+    constructor(element, chanceReproduction) {
         super(element);
-        this.chanceReproduction = 0.5;
+        this.chanceReproduction = chanceReproduction;
     }
 
     Reproduce() {
         const randomNumber = Math.random();
 
-        if (randomNumber >= this.chanceReproduction) {
+        if (randomNumber < this.chanceReproduction) {
             let cells = Array.from(table.getElementsByTagName("td"));
             let possibleDir = emptyCell(cells, this.currentPlace);
 
@@ -209,7 +226,7 @@ class Hare extends Animal {
 
             if (!newCell) return;
 
-            let animal = new Hare(newCell);
+            let animal = new Hare(newCell, this.chanceReproduction);
 
             let img = document.createElement("img");
             img.src = animalImages['hare'];
@@ -240,6 +257,9 @@ function generateTable() {
 
     const rows = parseInt(document.getElementById('inputN').value) + 2;
     const columns = parseInt(document.getElementById('inputM').value) + 2;
+    startEat = parseInt(document.getElementById('startEat').value);
+    increaseHunger = parseInt(document.getElementById('increaseHunger').value);
+    startReproduce = parseInt(document.getElementById('startReproduce').value);
 
     field.innerHTML = '';
     table = document.createElement('table');
@@ -272,6 +292,11 @@ function getRandomEmptyCell() {
 }
 
 function placeAnimals(count, type) {
+    const chanceReproduction = parseFloat(document.getElementById('chanceReproduction').value);
+    const starveWolf = parseInt(document.getElementById('starveWolf').value)
+    const starveWolfReproduction = parseInt(document.getElementById('starveWolfReproduction').value)
+    const childHunger = parseInt(document.getElementById('childHunger').value)
+
     for (let i = 0; i < count; i++) {
         let cell = getRandomEmptyCell();
 
@@ -285,11 +310,11 @@ function placeAnimals(count, type) {
         // Создание объекта
         let animal;
         if (type === 'hare') {
-            animal = new Hare(cell);
+            animal = new Hare(cell, chanceReproduction);
         } else if (type === 'femaleWolf') {
-            animal = new Wolf(cell, 'Female');
+            animal = new Wolf(cell, 'Female', starveWolf, starveWolfReproduction, childHunger);
         } else if (type === 'maleWolf') {
-            animal = new Wolf(cell, 'Male');
+            animal = new Wolf(cell, 'Male', starveWolf, starveWolfReproduction, childHunger);
         }
 
         let number = document.createElement('span');
@@ -317,13 +342,16 @@ function placementAnimals(rows, columns) {
     placeAnimals(countHare, "hare");
     placeAnimals(countFemaleWolf, "femaleWolf");
     placeAnimals(countMaleWolf, "maleWolf");
+
+    console.log(animals);
 }
 
 function updateAnimalList() {
     const listContainer = document.getElementById("animal-list");
     const listContainerHare = document.getElementById("animal-list-hare");
-    listContainer.innerHTML = "<h3>Список волков</h3>";
-    listContainerHare.innerHTML = "<h3>Список зайцев</h3>";
+
+    listContainer.innerHTML = "<h3>Список волков: " + countAnimals('Wolf') + "</h3><br>" + "Смертей: " + deathWolf;
+    listContainerHare.innerHTML = "<h3>Список зайцев: " + countAnimals('Hare') + "</h3><br>" + "Смертей: " + deathHare;
 
     animals.forEach(animal => {
 
@@ -364,28 +392,45 @@ function countAnimals(typeAnimal) {
     return num;
 }
 
+function cleanupDeadAnimals() {
+    let cells = Array.from(table.getElementsByTagName("td")).filter(cell => !cell.classList.contains('wall'));
+    cells.forEach(cell => {
+        if (cell.children.length > 0 && !animals.some(a => a.currentPlace === cell)) {
+            cell.innerHTML = ''; // Очищаем клетку от несуществующих животных
+        }
+    });
+}
+
 function updateSimulation() {
-    animals.forEach(animal => {
+
+    for (let i = 0; i < animals.length; i++) {
+        const animal = animals[i];
+
         if (animal.constructor.name === "Wolf") {
             animal.Starve();
+
+            // Удаление мертвого волка
             if (animal.hunger <= 0) {
-                animals = animals.filter(a => a !== animal);
                 animal.currentPlace.innerHTML = '';
-                return;
+                animal.currentPlace = null;
+                animals.splice(i, 1);
+                deathWolf += 1
+                continue;
             }
-            if (animal.hunger <= 75) {
-                animal.Eat();
-            }
-            else {
+
+            if (animal.hunger >= startReproduce) {
                 animal.Reproduce();
             }
-        }
-        else {
+
+            if (animal.hunger <= startEat) {
+                animal.Eat();
+            }
+        } else {
             animal.Reproduce();
         }
-        animal.Move();
 
-    });
+        animal.Move();
+    }
 
     let cells = Array.from(table.getElementsByTagName("td"));
     cells.forEach(cell => {
@@ -393,17 +438,22 @@ function updateSimulation() {
     });
 
     updateAnimalList();
+
     dayContainer.textContent = `${++numberDay} день`;
 
     days.push(numberDay);
     aliveHare.push(countAnimals('Hare'));
     aliveWolf.push(countAnimals('Wolf'));
 
-
     chart.data.labels = days;
     chart.data.datasets[0].data = aliveHare;
     chart.data.datasets[1].data = aliveWolf;
     chart.update();
+
+    // cleanupDeadAnimals();
+    console.log(Array.from(table.getElementsByTagName("td")).filter(cell => !cell.classList.contains('wall')));
+
+    if (countAnimals('Hare') + countAnimals('Wolf') === 0) startSimulation();
 }
 
 function startSimulation() {
